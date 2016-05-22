@@ -239,6 +239,7 @@ class RateLimit(object):
 
                 while retry and attempts < max_retries:
                     execute = True
+                    retry = False
 
                     try:
                         # Using this guard ensures that we destroy the transaction afterwards
@@ -249,12 +250,14 @@ class RateLimit(object):
                             value = pipe.get(key)
 
                             if value:
+                                value = int(value)
+
                                 if value < times:
                                     # We had the value already and there are attempts left. Just increment the counter
                                     pipe.incr(key, 1)
                                 else:
                                     # We are in rate limiting, fetch how long we should wait and do so
-                                    ttl = pipe.ttl(key)
+                                    ttl = int(pipe.ttl(key))
                                     execute = False
                             else:
                                 # Put back into batch mode
@@ -267,8 +270,8 @@ class RateLimit(object):
                             # Execute the batch of commands in the server if there was any need to
                             pipe.execute()
 
-                        # If we did not execute, then it was because we are in rate limiting mode
                         if not execute:
+                            # If we did not execute, then it was because we are in rate limiting mode
                             retry = blocking
 
                             # If we are allowed to retry, then just call the sleep function before entering the next
